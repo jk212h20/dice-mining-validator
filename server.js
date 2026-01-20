@@ -10,6 +10,11 @@ const __dirname = dirname(__filename);
 const PORT = process.env.PORT || 3000;
 const DIST_DIR = join(__dirname, 'dist');
 
+console.log(`Starting server...`);
+console.log(`PORT: ${PORT}`);
+console.log(`DIST_DIR: ${DIST_DIR}`);
+console.log(`DIST_DIR exists: ${existsSync(DIST_DIR)}`);
+
 const MIME_TYPES = {
   '.html': 'text/html',
   '.js': 'application/javascript',
