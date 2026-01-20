@@ -1,3 +1,5 @@
+providers = ["node"]
+
 [phases.setup]
 nixPkgs = ["nodejs_20"]
 
@@ -9,3 +11,6 @@ cmds = ["npm run build"]
 
 [start]
 cmd = "node server.js"
+
+[staticAssets]
+enable = false
