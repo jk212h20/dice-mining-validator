@@ -1,0 +1,9 @@
+# Static site deployment
+[staticAssets]
+enable = true
+
+[phases.build]
+cmds = ["npm ci", "npm run build"]
+
+[start]
+cmd = ""
