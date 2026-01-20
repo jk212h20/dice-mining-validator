@@ -304,6 +304,8 @@ body {
 .camera-controls {
   padding: 1.5rem;
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
   background: rgba(0, 0, 0, 0.8);
 }
@@ -330,6 +332,13 @@ body {
 
 .capture-button:disabled {
   opacity: 0.5;
+}
+
+.capture-hint {
+  color: #fff;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  text-align: center;
 }
 
 .camera-tips {

@@ -143,16 +143,7 @@ export default function CameraCapture({ onCapture, onBack, error }: CameraCaptur
         >
           <span className="capture-icon">📸</span>
         </button>
-      </div>
-
-      <div className="camera-tips">
-        <p>Tips:</p>
-        <ul>
-          <li>Hold phone steady and level</li>
-          <li>Ensure good lighting</li>
-          <li>Include all blocks in frame</li>
-          <li>Keep dice arranged in clear 3x3 grids</li>
-        </ul>
+        <p className="capture-hint">Tap to capture</p>
       </div>
     </div>
   );
