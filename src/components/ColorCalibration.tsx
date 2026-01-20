@@ -9,7 +9,7 @@ interface ColorCalibrationProps {
   currentCalibration: CalibrationData;
 }
 
-export default function ColorCalibration({ onComplete, onCancel, currentCalibration }: ColorCalibrationProps) {
+export default function ColorCalibration({ onComplete, onCancel }: ColorCalibrationProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);

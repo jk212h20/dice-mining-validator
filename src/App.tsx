@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { waitForOpenCV, isOpenCVReady } from './vision/opencv';
-import { detectDiceInRegion, groupDiceIntoBlocks, calibrateFromImage } from './vision/diceDetector';
+import { detectDiceInRegion, groupDiceIntoBlocks } from './vision/diceDetector';
 import { validateBlocks } from './validation/gameRules';
 import {
   AppScreen,

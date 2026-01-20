@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { DetectedBlock, DetectedDie, COLOR_HEX, DiceColor, DICE_COLORS } from '../types';
+import { DetectedBlock, COLOR_HEX, DiceColor, DICE_COLORS } from '../types';
 
 interface BlockReviewProps {
   imageData: ImageData;
