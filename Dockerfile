@@ -1,5 +1,8 @@
-# Build stage
+# Build stage - cache bust v2
 FROM node:20-alpine AS builder
+
+# Force cache invalidation
+ARG CACHE_BUST=1
 
 WORKDIR /app
 
