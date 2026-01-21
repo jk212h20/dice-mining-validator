@@ -7,6 +7,7 @@ import {
   CalibrationData,
   DEFAULT_CALIBRATION,
   DetectedBlock,
+  DetectedDie,
   ValidationResult,
   DiceColor,
   DICE_COLORS,
@@ -22,6 +23,7 @@ function App() {
   const [cvReady, setCvReady] = useState(false);
   const [calibration, setCalibration] = useState<CalibrationData>(DEFAULT_CALIBRATION);
   const [capturedImage, setCapturedImage] = useState<ImageData | null>(null);
+  const [detectedDice, setDetectedDice] = useState<DetectedDie[]>([]);
   const [detectedBlocks, setDetectedBlocks] = useState<DetectedBlock[]>([]);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [difficulty, setDifficulty] = useState(25);
@@ -72,17 +74,16 @@ function App() {
       const dice = detectDiceInRegion(mat, calibration);
       console.log('Detected dice:', dice.length);
 
+      // Store individual dice for display
+      setDetectedDice(dice);
+
       // Group into blocks
       const blocks = groupDiceIntoBlocks(dice);
       console.log('Detected blocks:', blocks.length);
 
       mat.delete();
 
-      if (blocks.length === 0) {
-        setError('No blocks detected. Try adjusting the camera angle or calibrating colors.');
-        return;
-      }
-
+      // Always set blocks (even if empty) and navigate to review
       setDetectedBlocks(blocks);
       setScreen('review');
     } catch (e) {
@@ -117,6 +118,7 @@ function App() {
   const goHome = useCallback(() => {
     setScreen('home');
     setCapturedImage(null);
+    setDetectedDice([]);
     setDetectedBlocks([]);
     setValidationResult(null);
     setError(null);
@@ -148,6 +150,7 @@ function App() {
           <BlockReview
             imageData={capturedImage!}
             blocks={detectedBlocks}
+            allDetectedDice={detectedDice}
             onConfirm={handleBlocksConfirmed}
             onRescan={() => setScreen('scan')}
             onBack={goHome}

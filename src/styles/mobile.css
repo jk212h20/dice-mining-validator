@@ -636,6 +636,149 @@ body {
   flex: 1;
 }
 
+/* Detection Summary (when no blocks found) */
+.detection-summary {
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.detection-summary h3 {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  color: #888;
+}
+
+.detection-stats {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.75rem;
+  min-width: 100px;
+}
+
+.stat-item .stat-icon {
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.stat-item .stat-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #fff;
+}
+
+.stat-item .stat-label {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.detection-message {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.detection-message.warning {
+  background: rgba(231, 76, 60, 0.15);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+}
+
+.detection-message.info {
+  background: rgba(52, 152, 219, 0.15);
+  border: 1px solid rgba(52, 152, 219, 0.3);
+}
+
+.detection-message .message-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.detection-message .message-content {
+  flex: 1;
+}
+
+.detection-message .message-content strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+}
+
+.detection-message .message-content p {
+  font-size: 0.9rem;
+  color: #aaa;
+  margin-bottom: 0.5rem;
+}
+
+.detection-message .message-content ul {
+  margin-left: 1rem;
+  font-size: 0.85rem;
+  color: #888;
+}
+
+.detection-message .message-content li {
+  margin-bottom: 0.25rem;
+}
+
+.detection-message .hint {
+  color: #f39c12;
+  font-style: italic;
+}
+
+.dice-breakdown {
+  margin-top: 1rem;
+}
+
+.dice-breakdown h4 {
+  font-size: 0.9rem;
+  color: #888;
+  margin-bottom: 0.5rem;
+}
+
+.dice-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.dice-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.dice-item .dice-color {
+  width: 18px;
+  height: 18px;
+  border-radius: 0.25rem;
+  flex-shrink: 0;
+}
+
+.dice-item .dice-pips {
+  font-weight: bold;
+  min-width: 16px;
+  text-align: center;
+}
+
+.dice-item .dice-confidence {
+  color: #888;
+  font-size: 0.75rem;
+}
+
 /* Results Screen */
 .results-screen {
   display: flex;

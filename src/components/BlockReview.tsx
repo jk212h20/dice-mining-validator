@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { DetectedBlock, COLOR_HEX, DiceColor, DICE_COLORS } from '../types';
+import { DetectedBlock, DetectedDie, COLOR_HEX, DiceColor, DICE_COLORS } from '../types';
 
 interface BlockReviewProps {
   imageData: ImageData;
   blocks: DetectedBlock[];
+  allDetectedDice: DetectedDie[];
   onConfirm: (blocks: DetectedBlock[]) => void;
   onRescan: () => void;
   onBack: () => void;
 }
 
-export default function BlockReview({ imageData, blocks, onConfirm, onRescan, onBack }: BlockReviewProps) {
+export default function BlockReview({ imageData, blocks, allDetectedDice, onConfirm, onRescan, onBack }: BlockReviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [editedBlocks, setEditedBlocks] = useState<DetectedBlock[]>(blocks);
   const [selectedBlockIndex, setSelectedBlockIndex] = useState<number | null>(null);
@@ -30,49 +31,70 @@ export default function BlockReview({ imageData, blocks, onConfirm, onRescan, on
     // Draw original image
     ctx.putImageData(imageData, 0, 0);
 
-    // Draw block overlays
-    editedBlocks.forEach((block, blockIndex) => {
-      const isSelected = blockIndex === selectedBlockIndex;
+    // If we have blocks, draw block overlays
+    if (editedBlocks.length > 0) {
+      editedBlocks.forEach((block, blockIndex) => {
+        const isSelected = blockIndex === selectedBlockIndex;
 
-      // Draw dice in block
-      block.dice.forEach((die, dieIndex) => {
-        const isSelectedDie = isSelected && dieIndex === selectedDieIndex;
+        // Draw dice in block
+        block.dice.forEach((die, dieIndex) => {
+          const isSelectedDie = isSelected && dieIndex === selectedDieIndex;
 
-        // Draw die bounding box
-        ctx.strokeStyle = isSelectedDie ? '#ffffff' : COLOR_HEX[die.color];
-        ctx.lineWidth = isSelectedDie ? 4 : 2;
-        ctx.strokeRect(die.bounds.x, die.bounds.y, die.bounds.width, die.bounds.height);
+          // Draw die bounding box
+          ctx.strokeStyle = isSelectedDie ? '#ffffff' : COLOR_HEX[die.color];
+          ctx.lineWidth = isSelectedDie ? 4 : 2;
+          ctx.strokeRect(die.bounds.x, die.bounds.y, die.bounds.width, die.bounds.height);
 
-        // Draw pip count label
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(die.bounds.x, die.bounds.y - 20, 30, 20);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 14px sans-serif';
-        ctx.fillText(`${die.pips}`, die.bounds.x + 10, die.bounds.y - 5);
+          // Draw pip count label
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+          ctx.fillRect(die.bounds.x, die.bounds.y - 20, 30, 20);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 14px sans-serif';
+          ctx.fillText(`${die.pips}`, die.bounds.x + 10, die.bounds.y - 5);
+        });
+
+        // Draw block boundary
+        if (block.dice.length > 0) {
+          const minX = Math.min(...block.dice.map(d => d.bounds.x));
+          const minY = Math.min(...block.dice.map(d => d.bounds.y));
+          const maxX = Math.max(...block.dice.map(d => d.bounds.x + d.bounds.width));
+          const maxY = Math.max(...block.dice.map(d => d.bounds.y + d.bounds.height));
+
+          ctx.strokeStyle = isSelected ? '#00ff00' : '#ffffff';
+          ctx.lineWidth = isSelected ? 3 : 1;
+          ctx.setLineDash([5, 5]);
+          ctx.strokeRect(minX - 10, minY - 10, maxX - minX + 20, maxY - minY + 20);
+          ctx.setLineDash([]);
+
+          // Block info label
+          ctx.fillStyle = isSelected ? 'rgba(0, 255, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)';
+          ctx.fillRect(minX - 10, minY - 45, 120, 25);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 12px sans-serif';
+          ctx.fillText(`Block ${blockIndex + 1}: Total ${block.total}`, minX - 5, minY - 28);
+        }
       });
-
-      // Draw block boundary
-      if (block.dice.length > 0) {
-        const minX = Math.min(...block.dice.map(d => d.bounds.x));
-        const minY = Math.min(...block.dice.map(d => d.bounds.y));
-        const maxX = Math.max(...block.dice.map(d => d.bounds.x + d.bounds.width));
-        const maxY = Math.max(...block.dice.map(d => d.bounds.y + d.bounds.height));
-
-        ctx.strokeStyle = isSelected ? '#00ff00' : '#ffffff';
-        ctx.lineWidth = isSelected ? 3 : 1;
-        ctx.setLineDash([5, 5]);
-        ctx.strokeRect(minX - 10, minY - 10, maxX - minX + 20, maxY - minY + 20);
+    } else {
+      // No blocks detected - draw individual dice (ungrouped)
+      allDetectedDice.forEach((die, index) => {
+        // Draw die bounding box with dashed line to indicate ungrouped
+        ctx.strokeStyle = COLOR_HEX[die.color];
+        ctx.lineWidth = 2;
+        ctx.setLineDash([3, 3]);
+        ctx.strokeRect(die.bounds.x, die.bounds.y, die.bounds.width, die.bounds.height);
         ctx.setLineDash([]);
 
-        // Block info label
-        ctx.fillStyle = isSelected ? 'rgba(0, 255, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(minX - 10, minY - 45, 120, 25);
+        // Draw pip count and confidence label
+        const labelWidth = 60;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(die.bounds.x, die.bounds.y - 22, labelWidth, 20);
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 12px sans-serif';
-        ctx.fillText(`Block ${blockIndex + 1}: Total ${block.total}`, minX - 5, minY - 28);
-      }
-    });
-  }, [imageData, editedBlocks, selectedBlockIndex, selectedDieIndex]);
+        ctx.font = 'bold 11px sans-serif';
+        const confidencePercent = Math.round(die.confidence * 100);
+        ctx.fillText(`${die.pips}⬤ ${confidencePercent}%`, die.bounds.x + 4, die.bounds.y - 7);
+      });
+    }
+  }, [imageData, editedBlocks, allDetectedDice, selectedBlockIndex, selectedDieIndex]);
 
   // Handle canvas click to select die
   const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -201,31 +223,98 @@ export default function BlockReview({ imageData, blocks, onConfirm, onRescan, on
         </div>
       )}
 
-      <div className="block-summary">
-        <h3>Block Summary</h3>
-        <div className="blocks-list">
-          {editedBlocks.map((block, index) => (
-            <div
-              key={block.id}
-              className={`block-item ${selectedBlockIndex === index ? 'selected' : ''}`}
-              onClick={() => {
-                setSelectedBlockIndex(index);
-                setSelectedDieIndex(null);
-              }}
-            >
-              <span className="block-label">Block {index + 1}</span>
-              <span className="block-dice">{block.dice.length} dice</span>
-              <span className="block-total">Total: {block.total}</span>
-            </div>
-          ))}
+      {editedBlocks.length > 0 ? (
+        <div className="block-summary">
+          <h3>Block Summary</h3>
+          <div className="blocks-list">
+            {editedBlocks.map((block, index) => (
+              <div
+                key={block.id}
+                className={`block-item ${selectedBlockIndex === index ? 'selected' : ''}`}
+                onClick={() => {
+                  setSelectedBlockIndex(index);
+                  setSelectedDieIndex(null);
+                }}
+              >
+                <span className="block-label">Block {index + 1}</span>
+                <span className="block-dice">{block.dice.length} dice</span>
+                <span className="block-total">Total: {block.total}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="detection-summary">
+          <h3>Detection Results</h3>
+          <div className="detection-stats">
+            <div className="stat-item">
+              <span className="stat-icon">🎲</span>
+              <span className="stat-value">{allDetectedDice.length}</span>
+              <span className="stat-label">dice detected</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-icon">📦</span>
+              <span className="stat-value">0</span>
+              <span className="stat-label">blocks formed</span>
+            </div>
+          </div>
+          
+          {allDetectedDice.length === 0 ? (
+            <div className="detection-message warning">
+              <span className="message-icon">⚠️</span>
+              <div className="message-content">
+                <strong>No dice detected</strong>
+                <p>Possible causes:</p>
+                <ul>
+                  <li>Dice not in frame</li>
+                  <li>Poor lighting conditions</li>
+                  <li>Colors need calibration</li>
+                  <li>Camera too far or too close</li>
+                </ul>
+              </div>
+            </div>
+          ) : (
+            <div className="detection-message info">
+              <span className="message-icon">ℹ️</span>
+              <div className="message-content">
+                <strong>Dice found but no blocks</strong>
+                <p>Blocks need 7-11 dice grouped together. Found {allDetectedDice.length} individual dice.</p>
+                {allDetectedDice.length < 7 && (
+                  <p className="hint">Need at least 7 dice to form a block.</p>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {allDetectedDice.length > 0 && (
+            <div className="dice-breakdown">
+              <h4>Detected Dice</h4>
+              <div className="dice-list">
+                {allDetectedDice.map((die, idx) => (
+                  <div key={idx} className="dice-item">
+                    <span 
+                      className="dice-color" 
+                      style={{ backgroundColor: COLOR_HEX[die.color] }}
+                    />
+                    <span className="dice-pips">{die.pips}</span>
+                    <span className="dice-confidence">{Math.round(die.confidence * 100)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="review-actions">
         <button className="btn-secondary" onClick={onRescan}>
           🔄 Rescan
         </button>
-        <button className="btn-primary" onClick={() => onConfirm(editedBlocks)}>
+        <button 
+          className="btn-primary" 
+          onClick={() => onConfirm(editedBlocks)}
+          disabled={editedBlocks.length === 0}
+        >
           ✓ Validate
         </button>
       </div>
