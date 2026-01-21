@@ -216,29 +216,30 @@ export function detectDiceWithDebug(
       const mask1 = new cv.Mat();
       const mask2 = new cv.Mat();
       
-      cv.inRange(
-        hsv,
-        new cv.Scalar(0, range.sMin, range.vMin),
-        new cv.Scalar(10, range.sMax, range.vMax),
-        mask1
-      );
-      cv.inRange(
-        hsv,
-        new cv.Scalar(170, range.sMin, range.vMin),
-        new cv.Scalar(180, range.sMax, range.vMax),
-        mask2
-      );
+      // OpenCV.js requires Mat for lower/upper bounds
+      const lower1 = cv.matFromArray(1, 3, cv.CV_8U, [0, range.sMin, range.vMin]);
+      const upper1 = cv.matFromArray(1, 3, cv.CV_8U, [10, range.sMax, range.vMax]);
+      const lower2 = cv.matFromArray(1, 3, cv.CV_8U, [170, range.sMin, range.vMin]);
+      const upper2 = cv.matFromArray(1, 3, cv.CV_8U, [180, range.sMax, range.vMax]);
+      
+      cv.inRange(hsv, lower1, upper1, mask1);
+      cv.inRange(hsv, lower2, upper2, mask2);
       cv.bitwise_or(mask1, mask2, mask);
       
+      lower1.delete();
+      upper1.delete();
+      lower2.delete();
+      upper2.delete();
       mask1.delete();
       mask2.delete();
     } else {
-      cv.inRange(
-        hsv,
-        new cv.Scalar(range.hMin, range.sMin, range.vMin),
-        new cv.Scalar(range.hMax, range.sMax, range.vMax),
-        mask
-      );
+      const lower = cv.matFromArray(1, 3, cv.CV_8U, [range.hMin, range.sMin, range.vMin]);
+      const upper = cv.matFromArray(1, 3, cv.CV_8U, [range.hMax, range.sMax, range.vMax]);
+      
+      cv.inRange(hsv, lower, upper, mask);
+      
+      lower.delete();
+      upper.delete();
     }
     
     // Morphological cleanup

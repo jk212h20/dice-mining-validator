@@ -33,6 +33,11 @@ declare global {
     split: (m: Mat, mv: MatVector) => void;
     merge: (mv: MatVector, dst: Mat) => void;
     matFromImageData: (imageData: ImageData) => Mat;
+    matFromArray: (rows: number, cols: number, type: number, array: number[]) => Mat;
+    CV_8U: number;
+    CV_8UC1: number;
+    CV_8UC3: number;
+    CV_8UC4: number;
     COLOR_RGB2HSV: number;
     COLOR_BGR2HSV: number;
     COLOR_RGBA2RGB: number;
