@@ -165,6 +165,7 @@ function App() {
             blocks={detectedBlocks}
             allDetectedDice={detectedDice}
             debugInfo={debugInfo}
+            colorKeyFound={colorKeyFound}
             onConfirm={handleBlocksConfirmed}
             onRescan={() => setScreen('scan')}
             onBack={goHome}

@@ -6,12 +6,13 @@ interface BlockReviewProps {
   blocks: DetectedBlock[];
   allDetectedDice: DetectedDie[];
   debugInfo: DetectionDebugInfo | null;
+  colorKeyFound?: boolean;
   onConfirm: (blocks: DetectedBlock[]) => void;
   onRescan: () => void;
   onBack: () => void;
 }
 
-export default function BlockReview({ imageData, blocks, allDetectedDice, debugInfo, onConfirm, onRescan, onBack }: BlockReviewProps) {
+export default function BlockReview({ imageData, blocks, allDetectedDice, debugInfo, colorKeyFound, onConfirm, onRescan, onBack }: BlockReviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [editedBlocks, setEditedBlocks] = useState<DetectedBlock[]>(blocks);
   const [selectedBlockIndex, setSelectedBlockIndex] = useState<number | null>(null);
@@ -247,6 +248,13 @@ export default function BlockReview({ imageData, blocks, allDetectedDice, debugI
       {showDebug && debugInfo && (
         <div className="debug-panel">
           <h4>🔧 Detection Debug Info</h4>
+          
+          <div className="debug-row">
+            <span className="debug-label">Color Key:</span>
+            <span className={`debug-value ${colorKeyFound ? 'accepted' : ''}`}>
+              {colorKeyFound ? '✓ Found (auto-calibrated)' : '✗ Not found (using defaults)'}
+            </span>
+          </div>
           
           <div className="debug-row">
             <span className="debug-label">Image:</span>
