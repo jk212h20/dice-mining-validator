@@ -19,6 +19,9 @@ import ColorCalibration from './components/ColorCalibration';
 import BlockReview from './components/BlockReview';
 import ValidationResults from './components/ValidationResults';
 
+// Version for cache busting and debugging - INCREMENT THIS TO VERIFY UPDATES
+const APP_VERSION = '1.2.0';
+
 function App() {
   const [screen, setScreen] = useState<AppScreen>('home');
   const [cvReady, setCvReady] = useState(false);
@@ -90,9 +93,10 @@ function App() {
       // Always set blocks (even if empty) and navigate to review
       setDetectedBlocks(blocks);
       setScreen('review');
-    } catch (e) {
+    } catch (e: any) {
       console.error('Detection error:', e);
-      setError('Failed to detect dice. Please try again.');
+      const errorMsg = e?.message || e?.toString() || 'Unknown error';
+      setError(`Error: ${errorMsg}`);
     }
   }, [calibration]);
 
@@ -240,6 +244,7 @@ function App() {
 
             <footer className="app-footer">
               <p>Point camera at the table after a round to validate blocks</p>
+              <p className="version">v{APP_VERSION}</p>
             </footer>
           </div>
         );
