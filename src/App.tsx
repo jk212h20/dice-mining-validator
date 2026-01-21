@@ -20,7 +20,7 @@ import BlockReview from './components/BlockReview';
 import ValidationResults from './components/ValidationResults';
 
 // Version for cache busting and debugging - INCREMENT THIS TO VERIFY UPDATES
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.5.0';
 
 function App() {
   const [screen, setScreen] = useState<AppScreen>('home');
