@@ -322,7 +322,6 @@ export function detectDiceWithDebug(
   const filteredDice = removeDuplicateDetections(detected);
   
   // Mark duplicates in candidates
-  const duplicateIndices = new Set<number>();
   for (let i = 0; i < candidates.length; i++) {
     if (!candidates[i].accepted) continue;
     

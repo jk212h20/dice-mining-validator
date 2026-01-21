@@ -36,7 +36,7 @@ export default function BlockReview({ imageData, blocks, allDetectedDice, debugI
     // If debug mode is on and we have debug info, draw ALL candidates
     if (showDebug && debugInfo && debugInfo.candidates.length > 0) {
       debugInfo.candidates.forEach((candidate) => {
-        const { bounds, accepted, rejectionReason, color } = candidate;
+        const { bounds, accepted, rejectionReason } = candidate;
         
         if (accepted) {
           // Accepted - solid green border
@@ -126,7 +126,7 @@ export default function BlockReview({ imageData, blocks, allDetectedDice, debugI
       });
     } else {
       // No blocks detected - draw individual dice (ungrouped)
-      allDetectedDice.forEach((die, index) => {
+      allDetectedDice.forEach((die) => {
         // Draw die bounding box with dashed line to indicate ungrouped
         ctx.strokeStyle = COLOR_HEX[die.color];
         ctx.lineWidth = 2;
