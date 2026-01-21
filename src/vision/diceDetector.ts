@@ -8,13 +8,13 @@ import {
   HSVRange
 } from '../types';
 
-// Minimum die area (percentage of image) to filter noise
-const MIN_DIE_AREA_RATIO = 0.001;
-const MAX_DIE_AREA_RATIO = 0.05;
+// Minimum die area (percentage of image) to filter noise - made more lenient
+const MIN_DIE_AREA_RATIO = 0.0005; // Very small dice still valid
+const MAX_DIE_AREA_RATIO = 0.15;   // Large dice when close up
 
 // Minimum pip area relative to die size
-const MIN_PIP_AREA_RATIO = 0.005;
-const MAX_PIP_AREA_RATIO = 0.15;
+const MIN_PIP_AREA_RATIO = 0.003;
+const MAX_PIP_AREA_RATIO = 0.20;
 
 /**
  * Detect dice color from HSV values

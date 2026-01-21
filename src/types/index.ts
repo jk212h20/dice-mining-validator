@@ -100,15 +100,15 @@ export interface ValidationResult {
   difficulty: number;
 }
 
-// Default calibration (rough estimates for typical lighting)
+// Default calibration (more lenient for varying lighting conditions)
 export const DEFAULT_CALIBRATION: CalibrationData = {
   diceColors: {
-    red: { hMin: 0, hMax: 10, sMin: 100, sMax: 255, vMin: 100, vMax: 255 },
-    orange: { hMin: 10, hMax: 25, sMin: 100, sMax: 255, vMin: 100, vMax: 255 },
-    yellow: { hMin: 25, hMax: 40, sMin: 100, sMax: 255, vMin: 100, vMax: 255 },
-    green: { hMin: 40, hMax: 80, sMin: 50, sMax: 255, vMin: 50, vMax: 255 },
-    blue: { hMin: 90, hMax: 130, sMin: 50, sMax: 255, vMin: 50, vMax: 255 },
-    purple: { hMin: 130, hMax: 170, sMin: 50, sMax: 255, vMin: 50, vMax: 255 }
+    red: { hMin: 0, hMax: 15, sMin: 50, sMax: 255, vMin: 50, vMax: 255 },
+    orange: { hMin: 8, hMax: 30, sMin: 50, sMax: 255, vMin: 50, vMax: 255 },
+    yellow: { hMin: 20, hMax: 50, sMin: 40, sMax: 255, vMin: 80, vMax: 255 },
+    green: { hMin: 35, hMax: 90, sMin: 30, sMax: 255, vMin: 40, vMax: 255 },
+    blue: { hMin: 85, hMax: 140, sMin: 30, sMax: 255, vMin: 40, vMax: 255 },
+    purple: { hMin: 120, hMax: 175, sMin: 30, sMax: 255, vMin: 40, vMax: 255 }
   },
   trayColors: [],
   isCalibrated: false,
