@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { waitForOpenCV, isOpenCVReady } from './vision/opencv';
-import { detectDiceInRegion, groupDiceIntoBlocks } from './vision/diceDetector';
+import { detectDiceWithDebug, groupDiceIntoBlocks } from './vision/diceDetector';
 import { validateBlocks } from './validation/gameRules';
 import {
   AppScreen,
@@ -8,6 +8,7 @@ import {
   DEFAULT_CALIBRATION,
   DetectedBlock,
   DetectedDie,
+  DetectionDebugInfo,
   ValidationResult,
   DiceColor,
   DICE_COLORS,
@@ -25,6 +26,7 @@ function App() {
   const [capturedImage, setCapturedImage] = useState<ImageData | null>(null);
   const [detectedDice, setDetectedDice] = useState<DetectedDie[]>([]);
   const [detectedBlocks, setDetectedBlocks] = useState<DetectedBlock[]>([]);
+  const [debugInfo, setDebugInfo] = useState<DetectionDebugInfo | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [difficulty, setDifficulty] = useState(25);
   const [error, setError] = useState<string | null>(null);
@@ -70,12 +72,14 @@ function App() {
       // Convert ImageData to OpenCV Mat
       const mat = cv.matFromImageData(imageData);
 
-      // Detect dice
-      const dice = detectDiceInRegion(mat, calibration);
+      // Detect dice with debug info
+      const { dice, debugInfo: detectionDebug } = detectDiceWithDebug(mat, calibration);
       console.log('Detected dice:', dice.length);
+      console.log('Debug info:', detectionDebug);
 
-      // Store individual dice for display
+      // Store individual dice and debug info for display
       setDetectedDice(dice);
+      setDebugInfo(detectionDebug);
 
       // Group into blocks
       const blocks = groupDiceIntoBlocks(dice);
@@ -120,6 +124,7 @@ function App() {
     setCapturedImage(null);
     setDetectedDice([]);
     setDetectedBlocks([]);
+    setDebugInfo(null);
     setValidationResult(null);
     setError(null);
   }, []);
@@ -151,6 +156,7 @@ function App() {
             imageData={capturedImage!}
             blocks={detectedBlocks}
             allDetectedDice={detectedDice}
+            debugInfo={debugInfo}
             onConfirm={handleBlocksConfirmed}
             onRescan={() => setScreen('scan')}
             onBack={goHome}

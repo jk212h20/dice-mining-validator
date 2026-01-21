@@ -1,20 +1,22 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { DetectedBlock, DetectedDie, COLOR_HEX, DiceColor, DICE_COLORS } from '../types';
+import { DetectedBlock, DetectedDie, DetectionDebugInfo, COLOR_HEX, DiceColor, DICE_COLORS } from '../types';
 
 interface BlockReviewProps {
   imageData: ImageData;
   blocks: DetectedBlock[];
   allDetectedDice: DetectedDie[];
+  debugInfo: DetectionDebugInfo | null;
   onConfirm: (blocks: DetectedBlock[]) => void;
   onRescan: () => void;
   onBack: () => void;
 }
 
-export default function BlockReview({ imageData, blocks, allDetectedDice, onConfirm, onRescan, onBack }: BlockReviewProps) {
+export default function BlockReview({ imageData, blocks, allDetectedDice, debugInfo, onConfirm, onRescan, onBack }: BlockReviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [editedBlocks, setEditedBlocks] = useState<DetectedBlock[]>(blocks);
   const [selectedBlockIndex, setSelectedBlockIndex] = useState<number | null>(null);
   const [selectedDieIndex, setSelectedDieIndex] = useState<number | null>(null);
+  const [showDebug, setShowDebug] = useState(true); // Show debug by default when no blocks detected
 
   // Draw image with detection overlays
   useEffect(() => {
@@ -31,8 +33,56 @@ export default function BlockReview({ imageData, blocks, allDetectedDice, onConf
     // Draw original image
     ctx.putImageData(imageData, 0, 0);
 
+    // If debug mode is on and we have debug info, draw ALL candidates
+    if (showDebug && debugInfo && debugInfo.candidates.length > 0) {
+      debugInfo.candidates.forEach((candidate) => {
+        const { bounds, accepted, rejectionReason, color } = candidate;
+        
+        if (accepted) {
+          // Accepted - solid green border
+          ctx.strokeStyle = '#00ff00';
+          ctx.lineWidth = 3;
+          ctx.setLineDash([]);
+        } else {
+          // Rejected - dashed line with color based on reason
+          ctx.lineWidth = 2;
+          ctx.setLineDash([4, 4]);
+          switch (rejectionReason) {
+            case 'too_small':
+              ctx.strokeStyle = '#ffff00'; // Yellow
+              break;
+            case 'too_large':
+              ctx.strokeStyle = '#ff8800'; // Orange
+              break;
+            case 'aspect_ratio':
+              ctx.strokeStyle = '#ff00ff'; // Magenta
+              break;
+            case 'duplicate':
+              ctx.strokeStyle = '#888888'; // Gray
+              break;
+            default:
+              ctx.strokeStyle = '#ff0000'; // Red
+          }
+        }
+        
+        ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+        ctx.setLineDash([]);
+        
+        // Draw small label for rejected candidates
+        if (!accepted && rejectionReason) {
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+          const label = rejectionReason.replace('_', ' ');
+          ctx.font = '10px sans-serif';
+          const textWidth = ctx.measureText(label).width;
+          ctx.fillRect(bounds.x, bounds.y + bounds.height, textWidth + 6, 14);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(label, bounds.x + 3, bounds.y + bounds.height + 10);
+        }
+      });
+    }
+
     // If we have blocks, draw block overlays
-    if (editedBlocks.length > 0) {
+    if (editedBlocks.length > 0 && !showDebug) {
       editedBlocks.forEach((block, blockIndex) => {
         const isSelected = blockIndex === selectedBlockIndex;
 
@@ -94,7 +144,7 @@ export default function BlockReview({ imageData, blocks, allDetectedDice, onConf
         ctx.fillText(`${die.pips}⬤ ${confidencePercent}%`, die.bounds.x + 4, die.bounds.y - 7);
       });
     }
-  }, [imageData, editedBlocks, allDetectedDice, selectedBlockIndex, selectedDieIndex]);
+  }, [imageData, editedBlocks, allDetectedDice, selectedBlockIndex, selectedDieIndex, showDebug, debugInfo]);
 
   // Handle canvas click to select die
   const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -185,8 +235,87 @@ export default function BlockReview({ imageData, blocks, allDetectedDice, onConf
       </div>
 
       <div className="review-info">
-        <p>Tap a die to edit its color or pip count</p>
+        <button 
+          className={`debug-toggle ${showDebug ? 'active' : ''}`}
+          onClick={() => setShowDebug(!showDebug)}
+        >
+          🔍 {showDebug ? 'Hide' : 'Show'} Debug
+        </button>
       </div>
+
+      {/* Debug Info Panel */}
+      {showDebug && debugInfo && (
+        <div className="debug-panel">
+          <h4>🔧 Detection Debug Info</h4>
+          
+          <div className="debug-row">
+            <span className="debug-label">Image:</span>
+            <span className="debug-value">{debugInfo.imageWidth} × {debugInfo.imageHeight}px</span>
+          </div>
+          
+          <div className="debug-row">
+            <span className="debug-label">Area range:</span>
+            <span className="debug-value">{Math.round(debugInfo.minAreaThreshold)}px² – {Math.round(debugInfo.maxAreaThreshold)}px²</span>
+          </div>
+          
+          {debugInfo.hsvSampleCenter && (
+            <div className="debug-row">
+              <span className="debug-label">Center HSV:</span>
+              <span className="debug-value">H:{debugInfo.hsvSampleCenter.h} S:{debugInfo.hsvSampleCenter.s} V:{debugInfo.hsvSampleCenter.v}</span>
+            </div>
+          )}
+          
+          <div className="debug-row">
+            <span className="debug-label">Total candidates:</span>
+            <span className="debug-value">{debugInfo.candidates.length}</span>
+          </div>
+          
+          <div className="debug-row">
+            <span className="debug-label">Accepted:</span>
+            <span className="debug-value accepted">{debugInfo.candidates.filter(c => c.accepted).length}</span>
+          </div>
+          
+          <div className="debug-rejection-counts">
+            <span className="debug-label">Rejections:</span>
+            <div className="rejection-list">
+              <span className="rejection too-small">
+                {debugInfo.candidates.filter(c => c.rejectionReason === 'too_small').length} too small
+              </span>
+              <span className="rejection too-large">
+                {debugInfo.candidates.filter(c => c.rejectionReason === 'too_large').length} too large
+              </span>
+              <span className="rejection aspect">
+                {debugInfo.candidates.filter(c => c.rejectionReason === 'aspect_ratio').length} aspect ratio
+              </span>
+              <span className="rejection duplicate">
+                {debugInfo.candidates.filter(c => c.rejectionReason === 'duplicate').length} duplicate
+              </span>
+            </div>
+          </div>
+          
+          <div className="debug-colors">
+            <span className="debug-label">Regions by color:</span>
+            <div className="color-counts">
+              {(Object.keys(debugInfo.colorRegionCounts) as DiceColor[]).map(color => (
+                <span key={color} className="color-count" style={{ borderColor: COLOR_HEX[color] }}>
+                  <span className="color-dot" style={{ backgroundColor: COLOR_HEX[color] }} />
+                  {debugInfo.colorRegionCounts[color]}
+                </span>
+              ))}
+            </div>
+          </div>
+          
+          <div className="debug-legend">
+            <span className="legend-title">Bounding box legend:</span>
+            <div className="legend-items">
+              <span className="legend-item"><span className="box accepted"></span>Accepted</span>
+              <span className="legend-item"><span className="box too-small"></span>Too small</span>
+              <span className="legend-item"><span className="box too-large"></span>Too large</span>
+              <span className="legend-item"><span className="box aspect"></span>Aspect ratio</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedDie && (
         <div className="die-editor">

@@ -52,6 +52,27 @@ export interface DetectedDie {
   bounds: { x: number; y: number; width: number; height: number };
 }
 
+// Debug info for a candidate region
+export interface DebugCandidate {
+  color: DiceColor;
+  bounds: { x: number; y: number; width: number; height: number };
+  area: number;
+  aspectRatio: number;
+  accepted: boolean;
+  rejectionReason?: 'too_small' | 'too_large' | 'aspect_ratio' | 'duplicate';
+}
+
+// Debug info from detection
+export interface DetectionDebugInfo {
+  imageWidth: number;
+  imageHeight: number;
+  minAreaThreshold: number;
+  maxAreaThreshold: number;
+  candidates: DebugCandidate[];
+  colorRegionCounts: Record<DiceColor, number>;
+  hsvSampleCenter?: { h: number; s: number; v: number };
+}
+
 // Detected block (9 dice in a 3x3 tray)
 export interface DetectedBlock {
   id: string;

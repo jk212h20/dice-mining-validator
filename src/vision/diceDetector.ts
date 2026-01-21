@@ -5,7 +5,9 @@ import {
   DetectedDie,
   DetectedBlock,
   CalibrationData,
-  HSVRange
+  HSVRange,
+  DebugCandidate,
+  DetectionDebugInfo
 } from '../types';
 
 // Minimum die area (percentage of image) to filter noise - made more lenient
@@ -157,7 +159,23 @@ export function detectDiceInRegion(
   calibration: CalibrationData,
   regionBounds?: Rect
 ): DetectedDie[] {
+  const result = detectDiceWithDebug(imageMat, calibration, regionBounds);
+  return result.dice;
+}
+
+/**
+ * Detect all dice with full debug information
+ */
+export function detectDiceWithDebug(
+  imageMat: Mat,
+  calibration: CalibrationData,
+  regionBounds?: Rect
+): { dice: DetectedDie[]; debugInfo: DetectionDebugInfo } {
   const detected: DetectedDie[] = [];
+  const candidates: DebugCandidate[] = [];
+  const colorRegionCounts: Record<DiceColor, number> = {
+    red: 0, orange: 0, yellow: 0, green: 0, blue: 0, purple: 0
+  };
   
   // Get the region to process
   let region: Mat;
@@ -167,11 +185,26 @@ export function detectDiceInRegion(
     region = imageMat;
   }
   
+  const imageArea = region.rows * region.cols;
+  const minArea = imageArea * MIN_DIE_AREA_RATIO;
+  const maxArea = imageArea * MAX_DIE_AREA_RATIO;
+  
   // Convert to HSV for color detection
   const rgb = new cv.Mat();
   cv.cvtColor(region, rgb, cv.COLOR_RGBA2RGB);
   const hsv = new cv.Mat();
   cv.cvtColor(rgb, hsv, cv.COLOR_RGB2HSV);
+  
+  // Sample HSV at center of image for debugging
+  let hsvSampleCenter: { h: number; s: number; v: number } | undefined;
+  try {
+    const centerY = Math.floor(region.rows / 2);
+    const centerX = Math.floor(region.cols / 2);
+    const pixel = hsv.ucharPtr(centerY, centerX);
+    hsvSampleCenter = { h: pixel[0], s: pixel[1], v: pixel[2] };
+  } catch (e) {
+    // Ignore sampling errors
+  }
   
   // For each dice color, find regions
   for (const color of DICE_COLORS) {
@@ -218,39 +251,58 @@ export function detectDiceInRegion(
     const hierarchy = new cv.Mat();
     cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
     
-    const imageArea = region.rows * region.cols;
-    const minArea = imageArea * MIN_DIE_AREA_RATIO;
-    const maxArea = imageArea * MAX_DIE_AREA_RATIO;
+    // Track how many regions found for this color
+    colorRegionCounts[color] = contours.size();
     
     for (let i = 0; i < contours.size(); i++) {
       const contour = contours.get(i);
       const area = cv.contourArea(contour);
+      const rect = cv.boundingRect(contour);
+      const aspectRatio = rect.width / rect.height;
       
-      if (area >= minArea && area <= maxArea) {
-        const rect = cv.boundingRect(contour);
+      const bounds = {
+        x: rect.x + (regionBounds?.x || 0),
+        y: rect.y + (regionBounds?.y || 0),
+        width: rect.width,
+        height: rect.height
+      };
+      
+      // Determine if accepted or rejected and why
+      let accepted = false;
+      let rejectionReason: DebugCandidate['rejectionReason'];
+      
+      if (area < minArea) {
+        rejectionReason = 'too_small';
+      } else if (area > maxArea) {
+        rejectionReason = 'too_large';
+      } else if (aspectRatio <= 0.6 || aspectRatio >= 1.7) {
+        rejectionReason = 'aspect_ratio';
+      } else {
+        accepted = true;
         
-        // Check aspect ratio (dice should be roughly square)
-        const aspectRatio = rect.width / rect.height;
-        if (aspectRatio > 0.6 && aspectRatio < 1.7) {
-          // Extract die region and count pips
-          const dieRegion = region.roi(rect);
-          const pips = countPips(dieRegion);
-          
-          detected.push({
-            color,
-            pips,
-            confidence: area / (rect.width * rect.height), // Fill ratio
-            bounds: {
-              x: rect.x + (regionBounds?.x || 0),
-              y: rect.y + (regionBounds?.y || 0),
-              width: rect.width,
-              height: rect.height
-            }
-          });
-          
-          dieRegion.delete();
-        }
+        // Extract die region and count pips
+        const dieRegion = region.roi(rect);
+        const pips = countPips(dieRegion);
+        
+        detected.push({
+          color,
+          pips,
+          confidence: area / (rect.width * rect.height),
+          bounds
+        });
+        
+        dieRegion.delete();
       }
+      
+      // Add to candidates list (all regions, accepted or not)
+      candidates.push({
+        color,
+        bounds,
+        area,
+        aspectRatio,
+        accepted,
+        rejectionReason
+      });
     }
     
     mask.delete();
@@ -266,8 +318,36 @@ export function detectDiceInRegion(
     region.delete();
   }
   
-  // Remove duplicate detections (overlapping dice)
-  return removeDuplicateDetections(detected);
+  // Remove duplicate detections
+  const filteredDice = removeDuplicateDetections(detected);
+  
+  // Mark duplicates in candidates
+  const duplicateIndices = new Set<number>();
+  for (let i = 0; i < candidates.length; i++) {
+    if (!candidates[i].accepted) continue;
+    
+    const isDuplicate = !filteredDice.some(d => 
+      d.bounds.x === candidates[i].bounds.x && 
+      d.bounds.y === candidates[i].bounds.y
+    );
+    
+    if (isDuplicate) {
+      candidates[i].accepted = false;
+      candidates[i].rejectionReason = 'duplicate';
+    }
+  }
+  
+  const debugInfo: DetectionDebugInfo = {
+    imageWidth: region.cols,
+    imageHeight: region.rows,
+    minAreaThreshold: minArea,
+    maxAreaThreshold: maxArea,
+    candidates,
+    colorRegionCounts,
+    hsvSampleCenter
+  };
+  
+  return { dice: filteredDice, debugInfo };
 }
 
 /**
