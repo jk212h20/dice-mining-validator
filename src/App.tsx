@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { waitForOpenCV, isOpenCVReady } from './vision/opencv';
-import { detectDiceWithDebug, groupDiceIntoBlocks } from './vision/diceDetector';
+import { detectDiceWithAutoCalibration, groupDiceIntoBlocks } from './vision/diceDetector';
 import { validateBlocks } from './validation/gameRules';
 import {
   AppScreen,
@@ -20,7 +20,7 @@ import BlockReview from './components/BlockReview';
 import ValidationResults from './components/ValidationResults';
 
 // Version for cache busting and debugging - INCREMENT THIS TO VERIFY UPDATES
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.4.0';
 
 function App() {
   const [screen, setScreen] = useState<AppScreen>('home');
@@ -33,6 +33,7 @@ function App() {
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [difficulty, setDifficulty] = useState(25);
   const [error, setError] = useState<string | null>(null);
+  const [colorKeyFound, setColorKeyFound] = useState(false);
 
   // Load OpenCV
   useEffect(() => {
@@ -65,6 +66,7 @@ function App() {
   const handleCapture = useCallback((imageData: ImageData) => {
     setCapturedImage(imageData);
     setError(null);
+    setColorKeyFound(false);
 
     if (!isOpenCVReady()) {
       setError('OpenCV is not ready yet. Please wait...');
@@ -75,14 +77,16 @@ function App() {
       // Convert ImageData to OpenCV Mat
       const mat = cv.matFromImageData(imageData);
 
-      // Detect dice with debug info
-      const { dice, debugInfo: detectionDebug } = detectDiceWithDebug(mat, calibration);
+      // Detect dice with auto-calibration from color key (6 dice showing 1-6)
+      const { dice, debugInfo: detectionDebug, keyFound } = detectDiceWithAutoCalibration(mat, calibration);
       console.log('Detected dice:', dice.length);
+      console.log('Color key found:', keyFound);
       console.log('Debug info:', detectionDebug);
 
       // Store individual dice and debug info for display
       setDetectedDice(dice);
       setDebugInfo(detectionDebug);
+      setColorKeyFound(keyFound);
 
       // Group into blocks
       const blocks = groupDiceIntoBlocks(dice);
@@ -243,7 +247,7 @@ function App() {
             </div>
 
             <footer className="app-footer">
-              <p>Point camera at the table after a round to validate blocks</p>
+              <p>Place "Color Key" next to blocks: 🔴1 🟠2 🟡3 🟢4 🔵5 🟣6</p>
               <p className="version">v{APP_VERSION}</p>
             </footer>
           </div>

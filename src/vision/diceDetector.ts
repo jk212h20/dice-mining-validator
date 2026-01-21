@@ -476,7 +476,245 @@ export function groupDiceIntoBlocks(dice: DetectedDie[]): DetectedBlock[] {
 }
 
 /**
- * Calibrate color detection from a reference image
+ * Auto-calibrate from a "Color Key" strip of 6 dice showing 1-6
+ * The key dice should be: Red=1, Orange=2, Yellow=3, Green=4, Blue=5, Purple=6
+ * 
+ * This function:
+ * 1. Detects all dice candidates using permissive settings
+ * 2. Looks for a pattern of 6 dice in a row with pips 1,2,3,4,5,6
+ * 3. Extracts HSV calibration from each die
+ * 4. Returns the calibration for all colors
+ */
+export function autoCalibrate(
+  imageMat: Mat
+): { calibration: CalibrationData; keyBounds: Rect[] } | null {
+  // Convert to HSV
+  const rgb = new cv.Mat();
+  cv.cvtColor(imageMat, rgb, cv.COLOR_RGBA2RGB);
+  const hsv = new cv.Mat();
+  cv.cvtColor(rgb, hsv, cv.COLOR_RGB2HSV);
+  
+  // First, find ALL potential die candidates with very permissive color detection
+  // We look for anything colored (saturation > 20, value > 30)
+  const colorMask = new cv.Mat();
+  const lower = cv.matFromArray(1, 3, cv.CV_8U, [0, 20, 30]);
+  const upper = cv.matFromArray(1, 3, cv.CV_8U, [180, 255, 255]);
+  cv.inRange(hsv, lower, upper, colorMask);
+  lower.delete();
+  upper.delete();
+  
+  // Morphological cleanup
+  const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
+  cv.morphologyEx(colorMask, colorMask, cv.MORPH_CLOSE, kernel);
+  cv.morphologyEx(colorMask, colorMask, cv.MORPH_OPEN, kernel);
+  kernel.delete();
+  
+  // Find contours
+  const contours = new cv.MatVector();
+  const hierarchy = new cv.Mat();
+  cv.findContours(colorMask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+  colorMask.delete();
+  
+  const imageArea = imageMat.rows * imageMat.cols;
+  const minArea = imageArea * 0.0003; // Very small
+  const maxArea = imageArea * 0.08;   // Pretty large
+  
+  // Collect all candidate dice
+  interface DieCandidate {
+    bounds: Rect;
+    pips: number;
+    centerX: number;
+    centerY: number;
+  }
+  
+  const candidates: DieCandidate[] = [];
+  
+  for (let i = 0; i < contours.size(); i++) {
+    const contour = contours.get(i);
+    const area = cv.contourArea(contour);
+    
+    if (area >= minArea && area <= maxArea) {
+      const rect = cv.boundingRect(contour);
+      const aspectRatio = rect.width / rect.height;
+      
+      // Dice should be roughly square
+      if (aspectRatio > 0.5 && aspectRatio < 2.0) {
+        const dieRegion = imageMat.roi(rect);
+        const pips = countPips(dieRegion);
+        dieRegion.delete();
+        
+        candidates.push({
+          bounds: rect,
+          pips,
+          centerX: rect.x + rect.width / 2,
+          centerY: rect.y + rect.height / 2
+        });
+      }
+    }
+  }
+  
+  contours.delete();
+  hierarchy.delete();
+  
+  console.log(`Auto-calibrate: Found ${candidates.length} die candidates`);
+  
+  // Look for the color key pattern: 6 dice with pips 1,2,3,4,5,6
+  // They should be roughly in a horizontal row
+  const keySequence = [1, 2, 3, 4, 5, 6];
+  
+  // Try to find 6 dice in a horizontal line with these pip values
+  // Sort candidates by X position
+  candidates.sort((a, b) => a.centerX - b.centerX);
+  
+  // Try each possible starting position
+  for (let start = 0; start <= candidates.length - 6; start++) {
+    const window = candidates.slice(start, start + 6);
+    
+    // Check if this group is roughly horizontal (Y variance is low)
+    const avgY = window.reduce((sum, c) => sum + c.centerY, 0) / 6;
+    const yVariance = window.reduce((sum, c) => sum + Math.pow(c.centerY - avgY, 2), 0) / 6;
+    const yStdDev = Math.sqrt(yVariance);
+    
+    // Y positions should be within ~1 die height
+    const avgHeight = window.reduce((sum, c) => sum + c.bounds.height, 0) / 6;
+    if (yStdDev > avgHeight * 0.8) continue;
+    
+    // Check if pips match 1,2,3,4,5,6 pattern
+    const pipsMatch = window.every((c, idx) => c.pips === keySequence[idx]);
+    
+    if (pipsMatch) {
+      console.log('Auto-calibrate: Found color key!');
+      
+      // Extract HSV calibration from each die
+      const calibration: CalibrationData = {
+        diceColors: {
+          red: { hMin: 0, hMax: 15, sMin: 50, sMax: 255, vMin: 50, vMax: 255 },
+          orange: { hMin: 8, hMax: 30, sMin: 50, sMax: 255, vMin: 50, vMax: 255 },
+          yellow: { hMin: 20, hMax: 50, sMin: 40, sMax: 255, vMin: 80, vMax: 255 },
+          green: { hMin: 35, hMax: 90, sMin: 30, sMax: 255, vMin: 40, vMax: 255 },
+          blue: { hMin: 85, hMax: 140, sMin: 30, sMax: 255, vMin: 40, vMax: 255 },
+          purple: { hMin: 120, hMax: 175, sMin: 30, sMax: 255, vMin: 40, vMax: 255 }
+        },
+        trayColors: [],
+        isCalibrated: true,
+        calibratedAt: Date.now()
+      };
+      
+      const colors: DiceColor[] = ['red', 'orange', 'yellow', 'green', 'blue', 'purple'];
+      const keyBounds: Rect[] = [];
+      
+      for (let i = 0; i < 6; i++) {
+        const die = window[i];
+        const color = colors[i];
+        const rect = die.bounds;
+        keyBounds.push(rect);
+        
+        // Sample HSV values from this die
+        const roi = hsv.roi(rect);
+        const hValues: number[] = [];
+        const sValues: number[] = [];
+        const vValues: number[] = [];
+        
+        // Sample center region (inner 50%)
+        const margin = Math.floor(rect.width * 0.25);
+        for (let y = margin; y < roi.rows - margin; y++) {
+          for (let x = margin; x < roi.cols - margin; x++) {
+            const pixel = roi.ucharPtr(y, x);
+            hValues.push(pixel[0]);
+            sValues.push(pixel[1]);
+            vValues.push(pixel[2]);
+          }
+        }
+        roi.delete();
+        
+        if (hValues.length > 0) {
+          // Calculate mean and std dev
+          const hMean = hValues.reduce((a, b) => a + b, 0) / hValues.length;
+          const sMean = sValues.reduce((a, b) => a + b, 0) / sValues.length;
+          const vMean = vValues.reduce((a, b) => a + b, 0) / vValues.length;
+          
+          const hStd = Math.sqrt(hValues.reduce((sum, v) => sum + Math.pow(v - hMean, 2), 0) / hValues.length);
+          const sStd = Math.sqrt(sValues.reduce((sum, v) => sum + Math.pow(v - sMean, 2), 0) / sValues.length);
+          const vStd = Math.sqrt(vValues.reduce((sum, v) => sum + Math.pow(v - vMean, 2), 0) / vValues.length);
+          
+          // Use 2.5 std deviations for tolerance
+          calibration.diceColors[color] = {
+            hMin: Math.max(0, Math.floor(hMean - 2.5 * Math.max(hStd, 5))),
+            hMax: Math.min(180, Math.ceil(hMean + 2.5 * Math.max(hStd, 5))),
+            sMin: Math.max(20, Math.floor(sMean - 2.5 * Math.max(sStd, 15))),
+            sMax: Math.min(255, Math.ceil(sMean + 2.5 * Math.max(sStd, 15))),
+            vMin: Math.max(30, Math.floor(vMean - 2.5 * Math.max(vStd, 15))),
+            vMax: 255
+          };
+          
+          console.log(`Calibrated ${color}: H=${hMean.toFixed(1)}±${hStd.toFixed(1)}, S=${sMean.toFixed(1)}, V=${vMean.toFixed(1)}`);
+        }
+      }
+      
+      rgb.delete();
+      hsv.delete();
+      
+      return { calibration, keyBounds };
+    }
+  }
+  
+  // No color key found
+  console.log('Auto-calibrate: Color key not found');
+  rgb.delete();
+  hsv.delete();
+  
+  return null;
+}
+
+/**
+ * Detect dice with auto-calibration from color key
+ * This is the main entry point that:
+ * 1. Tries to find and use the color key for calibration
+ * 2. Falls back to provided calibration if no key found
+ * 3. Returns detected dice and debug info
+ */
+export function detectDiceWithAutoCalibration(
+  imageMat: Mat,
+  fallbackCalibration: CalibrationData
+): { dice: DetectedDie[]; debugInfo: DetectionDebugInfo; calibrationUsed: CalibrationData; keyFound: boolean; keyBounds: Rect[] } {
+  // Try auto-calibration first
+  const autoResult = autoCalibrate(imageMat);
+  
+  let calibration: CalibrationData;
+  let keyFound = false;
+  let keyBounds: Rect[] = [];
+  
+  if (autoResult) {
+    calibration = autoResult.calibration;
+    keyFound = true;
+    keyBounds = autoResult.keyBounds;
+    console.log('Using auto-calibrated colors from color key');
+  } else {
+    calibration = fallbackCalibration;
+    console.log('Color key not found, using fallback calibration');
+  }
+  
+  // Now detect dice with the calibration
+  const { dice, debugInfo } = detectDiceWithDebug(imageMat, calibration);
+  
+  // Filter out the color key dice from detection results
+  const filteredDice = keyFound 
+    ? dice.filter(die => !keyBounds.some(kb => 
+        Math.abs(die.bounds.x - kb.x) < 10 && Math.abs(die.bounds.y - kb.y) < 10
+      ))
+    : dice;
+  
+  return { 
+    dice: filteredDice, 
+    debugInfo, 
+    calibrationUsed: calibration, 
+    keyFound,
+    keyBounds 
+  };
+}
+
+/**
+ * Calibrate color detection from a reference image (legacy)
  */
 export function calibrateFromImage(
   imageMat: Mat,
